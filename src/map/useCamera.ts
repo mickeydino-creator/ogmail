@@ -166,5 +166,5 @@ export function useCamera(containerRef: React.RefObject<HTMLDivElement | null>, 
     };
   }, [containerRef, cancelAnim, panBy, zoomAt]);
 
-  return { camera, flyTo, zoomAt, panBy, setCamera };
+  return { camera, flyTo, zoomAt, panBy, setCamera, cancelFlight: cancelAnim };
 }

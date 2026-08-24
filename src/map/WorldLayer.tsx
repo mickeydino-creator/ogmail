@@ -24,6 +24,26 @@ function MailboxGlyph({ x, y, isMine, hasUnread }: { x: number; y: number; isMin
   );
 }
 
+const WALL_PALETTE = ['#fbead0', '#f8dfe1', '#dceee1', '#dde6f7', '#f5e8d6', '#eee0f6', '#e3f0f6'];
+const ROOF_PALETTE = ['#e2685a', '#d98c46', '#4f8f6d', '#5a7fc0', '#c05a86', '#3f9e97'];
+
+function hashIndex(id: string, salt: string, mod: number) {
+  let h = 0;
+  const s = id + salt;
+  for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) >>> 0;
+  return h % mod;
+}
+
+function WindowGlyph({ x, y, w, h, lit }: { x: number; y: number; w: number; h: number; lit: boolean }) {
+  return (
+    <g>
+      <rect x={x} y={y} width={w} height={h} rx={1} className={lit ? 'bld-window lit' : 'bld-window'} />
+      <line x1={x + w / 2} y1={y} x2={x + w / 2} y2={y + h} className="bld-window-mullion" />
+      <line x1={x} y1={y + h / 2} x2={x + w} y2={y + h / 2} className="bld-window-mullion" />
+    </g>
+  );
+}
+
 function HouseGlyph({
   x, y, w, h, lit, addr, isMine, hasUnread, highlighted, onSelect,
 }: {
@@ -32,6 +52,11 @@ function HouseGlyph({
   onSelect?: (addr: AddressUnit) => void;
 }) {
   const roofH = h * 0.42;
+  const wallFill = WALL_PALETTE[hashIndex(addr.id, 'wall', WALL_PALETTE.length)];
+  const roofFill = ROOF_PALETTE[hashIndex(addr.id, 'roof', ROOF_PALETTE.length)];
+  const chimneySide = hashIndex(addr.id, 'chimney', 2) === 0 ? 0.24 : 0.7;
+  const chimneyX = x + w * chimneySide;
+  const chimneyTopY = y + roofH * 0.32;
   return (
     <g
       onClick={(e) => { e.stopPropagation(); onSelect?.(addr); }}
@@ -39,19 +64,21 @@ function HouseGlyph({
       style={{ cursor: onSelect ? 'pointer' : undefined }}
     >
       {highlighted && <circle cx={x + w / 2} cy={y + h / 2} r={Math.max(w, h) * 0.95} className="select-ring" />}
-      <rect x={x} y={y + roofH} width={w} height={h - roofH} rx={2} className="bld-wall" />
+      <ellipse cx={x + w / 2} cy={y + h + h * 0.06} rx={w * 0.56} ry={h * 0.09} className="bld-shadow" />
+      <rect x={chimneyX - w * 0.045} y={chimneyTopY} width={w * 0.09} height={roofH * 0.55} className="bld-chimney" />
+      <rect x={chimneyX - w * 0.06} y={chimneyTopY - h * 0.02} width={w * 0.12} height={h * 0.04} className="bld-chimney-cap" />
+      <rect x={x} y={y + roofH} width={w} height={h - roofH} rx={2} className="bld-wall" style={isMine ? undefined : { fill: wallFill }} />
       <polygon
         points={`${x - 2},${y + roofH} ${x + w / 2},${y} ${x + w + 2},${y + roofH}`}
         className={isMine ? 'bld-roof mine' : 'bld-roof'}
+        style={isMine ? undefined : { fill: roofFill }}
       />
-      <rect x={x + w * 0.28} y={y + h - h * 0.34} width={w * 0.16} height={h * 0.3} className="bld-door" />
-      <rect
-        x={x + w * 0.58}
-        y={y + roofH + h * 0.12}
-        width={w * 0.22}
-        height={h * 0.16}
-        className={lit ? 'bld-window lit' : 'bld-window'}
-      />
+      <line x1={x - 2} y1={y + roofH} x2={x + w + 2} y2={y + roofH} className="bld-roof-trim" />
+      <rect x={x + w * 0.28} y={y + h - h * 0.34} width={w * 0.16} height={h * 0.3} rx={0.6} className="bld-door" />
+      <circle cx={x + w * 0.4} cy={y + h - h * 0.18} r={0.9} className="bld-doorknob" />
+      <WindowGlyph x={x + w * 0.58} y={y + roofH + h * 0.12} w={w * 0.22} h={h * 0.16} lit={lit} />
+      <circle cx={x + w * 0.1} cy={y + h - h * 0.06} r={w * 0.09} className="bld-bush" />
+      <circle cx={x + w * 0.9} cy={y + h - h * 0.05} r={w * 0.07} className="bld-bush" />
       <MailboxGlyph x={addr.doorPos.x} y={addr.doorPos.y} isMine={isMine} hasUnread={hasUnread} />
       <rect x={x - 2} y={y - 2} width={w + 4} height={h + 4} fill="transparent" />
     </g>
@@ -156,17 +183,37 @@ function FactoryGlyph() {
   );
 }
 
+const ASPHALT_WIDTH = ROAD_WIDTH * 0.74;
+
 function Roads() {
-  const lines = [];
+  const sidewalks = [];
+  const asphalt = [];
+  const centerlines = [];
+  const span = GRID_N * CELL;
   for (let i = 0; i <= GRID_N; i++) {
-    lines.push(
-      <line key={`v${i}`} x1={i * CELL} y1={-40} x2={i * CELL} y2={GRID_N * CELL + 40} className="road-line" strokeWidth={ROAD_WIDTH} />,
+    const isVEdge = i === 0 || i === GRID_N;
+    sidewalks.push(
+      <line key={`sv${i}`} x1={i * CELL} y1={-40} x2={i * CELL} y2={span + 40} className="road-sidewalk" strokeWidth={ROAD_WIDTH} />,
+      <line key={`sh${i}`} x1={-40} y1={i * CELL} x2={span + 40} y2={i * CELL} className="road-sidewalk" strokeWidth={ROAD_WIDTH} />,
     );
-    lines.push(
-      <line key={`h${i}`} x1={-40} y1={i * CELL} x2={GRID_N * CELL + 40} y2={i * CELL} className="road-line" strokeWidth={ROAD_WIDTH} />,
+    asphalt.push(
+      <line key={`av${i}`} x1={i * CELL} y1={-40} x2={i * CELL} y2={span + 40} className="road-asphalt" strokeWidth={ASPHALT_WIDTH} />,
+      <line key={`ah${i}`} x1={-40} y1={i * CELL} x2={span + 40} y2={i * CELL} className="road-asphalt" strokeWidth={ASPHALT_WIDTH} />,
     );
+    if (!isVEdge) {
+      centerlines.push(
+        <line key={`cv${i}`} x1={i * CELL} y1={-40} x2={i * CELL} y2={span + 40} className="road-centerline" />,
+        <line key={`ch${i}`} x1={-40} y1={i * CELL} x2={span + 40} y2={i * CELL} className="road-centerline" />,
+      );
+    }
   }
-  return <g>{lines}</g>;
+  return (
+    <g>
+      <g>{sidewalks}</g>
+      <g>{asphalt}</g>
+      <g>{centerlines}</g>
+    </g>
+  );
 }
 
 interface BlockRenderCtx {

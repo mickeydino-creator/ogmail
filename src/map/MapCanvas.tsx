@@ -3,9 +3,14 @@ import { useCamera } from './useCamera';
 import { WorldLayer } from './WorldLayer';
 import { AmbientLife } from './AmbientLife';
 import { TrucksLayer } from './TrucksLayer';
+import { getTruckPose } from './truckPosition';
 import { WORLD } from '../world/generateWorld';
 import type { AddressUnit, DeliveryStatus } from '../types';
 import { useStore } from '../store/useStore';
+import { computeDurations, progressWithin } from '../engine/deliveryEngine';
+
+const DRIVING_STATUSES: DeliveryStatus[] = ['TO_FACTORY', 'LEAVING_FACTORY', 'TO_RECIPIENT'];
+const FOLLOW_SCALE = 1.3;
 
 export interface MapCanvasHandle {
   flyToAddress: (addressId: string, scale?: number) => void;
@@ -29,7 +34,7 @@ export const MapCanvas = forwardRef<MapCanvasHandle, Props>(function MapCanvas(
 ) {
   const containerRef = useRef<HTMLDivElement>(null);
   const worldCenter = WORLD.factory.bounds;
-  const { camera, flyTo } = useCamera(containerRef, {
+  const { camera, flyTo, setCamera, cancelFlight } = useCamera(containerRef, {
     scale: OVERVIEW_SCALE,
     tx: 0,
     ty: 0,
@@ -86,21 +91,14 @@ export const MapCanvas = forwardRef<MapCanvasHandle, Props>(function MapCanvas(
     const recipient = users[envelope.recipientId];
     const senderAddr = sender ? WORLD.addressById.get(sender.addressId) : undefined;
     const recipientAddr = recipient ? WORLD.addressById.get(recipient.addressId) : undefined;
+    // Driving phases (TO_FACTORY / LEAVING_FACTORY / TO_RECIPIENT) are handled by the
+    // continuous chase-camera effect below instead of a one-shot flyTo.
     switch (envelope.status) {
       case 'PICKUP':
         if (senderAddr) flyTo(senderAddr.pos, 1.6, 900);
         break;
-      case 'TO_FACTORY':
-        if (senderAddr) flyTo({ x: (senderAddr.pos.x + WORLD.factory.entrance.x) / 2, y: (senderAddr.pos.y + WORLD.factory.entrance.y) / 2 }, 0.55, 900);
-        break;
       case 'PROCESSING':
         flyTo({ x: worldCenter.x + worldCenter.w / 2, y: worldCenter.y + worldCenter.h / 2 }, 1.1, 800);
-        break;
-      case 'LEAVING_FACTORY':
-        flyTo(WORLD.factory.exit, 1.3, 700);
-        break;
-      case 'TO_RECIPIENT':
-        if (recipientAddr) flyTo({ x: (WORLD.factory.exit.x + recipientAddr.pos.x) / 2, y: (WORLD.factory.exit.y + recipientAddr.pos.y) / 2 }, 0.55, 900);
         break;
       case 'DELIVERED':
         if (recipientAddr) flyTo(recipientAddr.pos, 1.6, 900);
@@ -108,6 +106,40 @@ export const MapCanvas = forwardRef<MapCanvasHandle, Props>(function MapCanvas(
       default:
         break;
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [envelope?.status]);
+
+  // Chase camera: while the truck is actually driving, follow it continuously frame by
+  // frame instead of jumping between fixed shots — this is the "track the vehicle" feel.
+  useEffect(() => {
+    if (!envelope || !DRIVING_STATUSES.includes(envelope.status)) return;
+    const sender = users[envelope.senderId];
+    const recipient = users[envelope.recipientId];
+    const senderAddr = sender ? WORLD.addressById.get(sender.addressId) : undefined;
+    const recipientAddr = recipient ? WORLD.addressById.get(recipient.addressId) : undefined;
+    if (!sender || !recipient || !senderAddr || !recipientAddr) return;
+    const durations = computeDurations(sender.addressId, recipient.addressId);
+    cancelFlight();
+    let raf: number;
+    const loop = () => {
+      const now = Date.now();
+      const progress = progressWithin(envelope, durations, now);
+      const pose = getTruckPose(envelope.status, progress, senderAddr, recipientAddr);
+      const el = containerRef.current;
+      if (pose && el) {
+        const rect = el.getBoundingClientRect();
+        const targetTx = rect.width / 2 - pose.pos.x * FOLLOW_SCALE;
+        const targetTy = rect.height / 2 - pose.pos.y * FOLLOW_SCALE;
+        setCamera((prev) => ({
+          scale: prev.scale + (FOLLOW_SCALE - prev.scale) * 0.08,
+          tx: prev.tx + (targetTx - prev.tx) * 0.12,
+          ty: prev.ty + (targetTy - prev.ty) * 0.12,
+        }));
+      }
+      raf = requestAnimationFrame(loop);
+    };
+    raf = requestAnimationFrame(loop);
+    return () => cancelAnimationFrame(raf);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [envelope?.status]);
 

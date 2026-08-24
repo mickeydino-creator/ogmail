@@ -236,7 +236,9 @@ button {
 .map-svg { display: block; touch-action: none; }
 .map-bg { fill: #dfe6f7; }
 
-.road-line { stroke: #c7cfe8; stroke-linecap: round; }
+.road-sidewalk { stroke: #cdd4ea; stroke-linecap: round; }
+.road-asphalt { stroke: #545b73; stroke-linecap: round; }
+.road-centerline { stroke: #f2c94c; stroke-width: 1.6; stroke-dasharray: 9 8; opacity: 0.85; }
 .lot-ground { fill: #e3f4e6; }
 .park-ground { fill: #cdeccb; }
 .park-path { stroke: #e8dcb8; stroke-width: 6; fill: none; stroke-linecap: round; }
@@ -245,12 +247,19 @@ button {
 .tree-sway { animation: sway 4s ease-in-out infinite; transform-box: fill-box; }
 @keyframes sway { 0%,100% { transform: rotate(-3deg); } 50% { transform: rotate(3deg); } }
 
-.bld-wall { fill: #fbead0; stroke: #e8c98f; stroke-width: 1; }
+.bld-shadow { fill: rgba(20, 24, 46, 0.1); }
+.bld-chimney { fill: #b3543f; }
+.bld-chimney-cap { fill: #8a3f2e; }
+.bld-wall { fill: #fbead0; stroke: rgba(0,0,0,0.12); stroke-width: 0.6; }
 .bld-roof { fill: #e2685a; }
 .bld-roof.mine { fill: var(--primary); }
-.bld-door { fill: #8a5a3b; }
-.bld-window { fill: #bcd4e8; }
+.bld-roof-trim { stroke: rgba(0,0,0,0.15); stroke-width: 0.8; }
+.bld-door { fill: #8a5a3b; stroke: rgba(0,0,0,0.15); stroke-width: 0.4; }
+.bld-doorknob { fill: #ffd54f; }
+.bld-window { fill: #bcd4e8; stroke: rgba(0,0,0,0.12); stroke-width: 0.4; }
 .bld-window.lit { fill: #ffe08a; }
+.bld-window-mullion { stroke: rgba(255,255,255,0.55); stroke-width: 0.5; }
+.bld-bush { fill: #5fa872; stroke: #3f7a52; stroke-width: 0.4; }
 .bld-apartment { fill: #d9dcf5; stroke: #b9bfec; stroke-width: 1; }
 .bld-shop { stroke: rgba(0,0,0,0.08); stroke-width: 1; }
 .shop-awning { fill: #e2685a; opacity: 0.8; }
@@ -277,12 +286,21 @@ button {
 .factory-gate.exit { fill: var(--success); stroke: #1f8a4c; }
 .factory-gate-label { fill: var(--ink-soft); font-size: 9px; font-weight: 800; font-family: 'Nunito', sans-serif; }
 
-.ambient-car { filter: drop-shadow(0 1px 1px rgba(0,0,0,0.25)); }
+.ambient-car { filter: drop-shadow(0 1px 1px rgba(0,0,0,0.2)); }
+.ambient-car-shadow { fill: rgba(20, 24, 46, 0.16); }
+.ambient-car-body { stroke: rgba(0,0,0,0.22); stroke-width: 0.35; }
+.ambient-car-cab { opacity: 0.88; stroke: rgba(0,0,0,0.18); stroke-width: 0.3; }
+.ambient-car-glass { fill: #cfe8ff; opacity: 0.9; }
+.ambient-car-wheel { fill: #2b2f4a; }
 .ambient-walker { fill: #5c6390; opacity: 0.8; }
 
+.truck-shadow { fill: rgba(20, 24, 46, 0.18); }
 .truck-body { fill: #ff8a65; stroke: #c85a3c; stroke-width: 1; }
-.truck-cab { fill: #fff3ea; stroke: #c85a3c; stroke-width: 1; }
+.truck-cab { fill: #ffb199; stroke: #c85a3c; stroke-width: 1; }
+.truck-windshield { fill: #cfe8ff; stroke: #8fb8d9; stroke-width: 0.5; }
 .truck-wheel { fill: #2b2f4a; }
+.truck-hub { fill: #7c8db5; }
+.truck-light { fill: #ffe08a; }
 .truck-envelope { fill: #fff; stroke: var(--primary-dark); stroke-width: 0.6; }
 .truck-idle { animation: truck-bob 0.9s ease-in-out infinite; transform-box: fill-box; }
 @keyframes truck-bob { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-1px); } }

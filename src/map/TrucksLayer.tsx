@@ -2,21 +2,24 @@ import { useEffect, useRef, useState } from 'react';
 import { useStore } from '../store/useStore';
 import { WORLD } from '../world/generateWorld';
 import { computeDurations, progressWithin } from '../engine/deliveryEngine';
-import { pathLength, routeFromFactory, routeToFactory, samplePath } from '../world/routing';
-
-const EMERGE_DIST = 55; // world units the truck visibly "emerges" from the exit gate
+import { getTruckPose } from './truckPosition';
 
 function Truck({ x, y, angle, style }: { x: number; y: number; angle: number; style: 'pickup' | 'drive' }) {
   // Positioning transform lives on the outer <g>; the bob animation (which sets a CSS
   // `transform`) lives on an inner <g> so it doesn't clobber the outer translate/rotate.
   return (
     <g transform={`translate(${x}, ${y}) rotate(${angle})`}>
+      <ellipse cx={0} cy={8.5} rx={12} ry={2.6} className="truck-shadow" />
       <g className={`truck ${style === 'pickup' ? 'truck-idle' : 'truck-driving'}`}>
-        <rect x={-10} y={-6} width={20} height={12} rx={2.5} className="truck-body" />
-        <rect x={4} y={-5} width={7} height={10} rx={1.5} className="truck-cab" />
-        <circle cx={-5} cy={6} r={2.4} className="truck-wheel" />
-        <circle cx={6.5} cy={6} r={2.4} className="truck-wheel" />
-        <rect x={-8} y={-3.5} width={5} height={4} rx={0.8} className="truck-envelope" />
+        <rect x={-11} y={-6.5} width={22} height={13} rx={3} className="truck-body" />
+        <rect x={3.5} y={-9.5} width={8.5} height={13} rx={2.5} className="truck-cab" />
+        <rect x={5} y={-7.5} width={5.5} height={4.5} rx={1} className="truck-windshield" />
+        <rect x={-9.5} y={-4.5} width={12} height={5} rx={1.2} className="truck-envelope" />
+        <rect x={11.5} y={-3.5} width={1.6} height={2.4} rx={0.5} className="truck-light" />
+        <circle cx={-6} cy={6.5} r={3.1} className="truck-wheel" />
+        <circle cx={-6} cy={6.5} r={1.2} className="truck-hub" />
+        <circle cx={7} cy={6.5} r={3.1} className="truck-wheel" />
+        <circle cx={7} cy={6.5} r={1.2} className="truck-hub" />
       </g>
     </g>
   );
@@ -56,24 +59,17 @@ export function TrucksLayer() {
         if (!senderAddr || !recipientAddr) return null;
         const durations = computeDurations(sender.addressId, recipient.addressId);
         const progress = progressWithin(env, durations, now);
-
-        if (env.status === 'PICKUP') {
-          return <Truck key={env.id} x={senderAddr.doorPos.x + 16} y={senderAddr.doorPos.y + 4} angle={0} style="pickup" />;
-        }
-        if (env.status === 'TO_FACTORY') {
-          const pts = routeToFactory(senderAddr);
-          const { pos, angle } = samplePath(pts, progress);
-          return <Truck key={env.id} x={pos.x} y={pos.y} angle={angle} style="drive" />;
-        }
-        if (env.status === 'LEAVING_FACTORY' || env.status === 'TO_RECIPIENT') {
-          const pts = routeFromFactory(recipientAddr);
-          const total = pathLength(pts);
-          const emergeFrac = total > 0 ? Math.min(0.35, EMERGE_DIST / total) : 0.1;
-          const t = env.status === 'LEAVING_FACTORY' ? progress * emergeFrac : emergeFrac + progress * (1 - emergeFrac);
-          const { pos, angle } = samplePath(pts, t);
-          return <Truck key={env.id} x={pos.x} y={pos.y} angle={angle} style="drive" />;
-        }
-        return null;
+        const pose = getTruckPose(env.status, progress, senderAddr, recipientAddr);
+        if (!pose) return null;
+        return (
+          <Truck
+            key={env.id}
+            x={pose.pos.x}
+            y={pose.pos.y}
+            angle={pose.angle}
+            style={env.status === 'PICKUP' ? 'pickup' : 'drive'}
+          />
+        );
       })}
     </g>
   );
