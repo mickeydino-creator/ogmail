@@ -21,7 +21,7 @@ interface Props {
   myAddressId: string;
   unreadAddressIds: Set<string>;
   highlightedAddressId?: string;
-  onSelectAddress?: (addr: AddressUnit) => void;
+  onSelectAddress?: (addr: AddressUnit, point: { x: number; y: number }) => void;
   followEnvelopeId?: string | null;
   onDeliveryPhase?: (status: DeliveryStatus | null) => void;
 }

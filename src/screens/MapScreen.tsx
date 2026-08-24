@@ -5,6 +5,7 @@ import { useStore } from '../store/useStore';
 import type { AddressUnit, DeliveryStatus } from '../types';
 import { searchUsers } from '../utils';
 import { DeliveryOverlay } from '../components/DeliveryOverlay';
+import { HousePopup } from '../components/HousePopup';
 
 export function MapScreen({
   followEnvelopeId,
@@ -26,7 +27,7 @@ export function MapScreen({
   const mapRef = useRef<MapCanvasHandle>(null);
   const [searchOpen, setSearchOpen] = useState(false);
   const [query, setQuery] = useState('');
-  const [selected, setSelected] = useState<AddressUnit | null>(null);
+  const [selected, setSelected] = useState<{ addr: AddressUnit; point: { x: number; y: number } } | null>(null);
 
   const results = useMemo(() => searchUsers(users, query, currentUserId), [users, query, currentUserId]);
 
@@ -55,8 +56,8 @@ export function MapScreen({
         ref={mapRef}
         myAddressId={me.addressId}
         unreadAddressIds={unreadAddressIds}
-        highlightedAddressId={selected?.id}
-        onSelectAddress={setSelected}
+        highlightedAddressId={selected?.addr.id}
+        onSelectAddress={(addr, point) => setSelected({ addr, point })}
         followEnvelopeId={followEnvelopeId}
         onDeliveryPhase={onDeliveryPhase}
       />
@@ -102,32 +103,20 @@ export function MapScreen({
       </div>
 
       {selected && (
-        <div className="card" style={{ position: 'absolute', left: 12, right: 12, bottom: 100, zIndex: 15 }}>
-          {(() => {
-            const occupant = occupantForAddress(selected);
-            return (
-              <>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                  <div>
-                    <div style={{ fontWeight: 800 }}>{selected.label}</div>
-                    <div className="muted" style={{ fontSize: 12.5 }}>
-                      {occupant ? `Home of ${occupant.username}` : 'Address not yet claimed'}
-                    </div>
-                  </div>
-                  <button className="icon-btn" style={{ width: 30, height: 30, fontSize: 13 }} onClick={() => setSelected(null)}>✕</button>
-                </div>
-                {occupant && occupant.id !== currentUserId && (
-                  <button className="btn btn-primary btn-block" style={{ marginTop: 12 }} onClick={() => onSendTo(occupant.id)}>
-                    Send Mail
-                  </button>
-                )}
-                {occupant?.id === currentUserId && (
-                  <div className="address-chip" style={{ marginTop: 12 }}>🏠 This is your house</div>
-                )}
-              </>
-            );
-          })()}
-        </div>
+        <>
+          <div className="popup-backdrop" onClick={() => setSelected(null)} />
+          <HousePopup
+            addr={selected.addr}
+            point={selected.point}
+            occupant={occupantForAddress(selected.addr)}
+            isMine={selected.addr.id === me.addressId}
+            onClose={() => setSelected(null)}
+            onSendMail={(userId) => {
+              setSelected(null);
+              onSendTo(userId);
+            }}
+          />
+        </>
       )}
 
       <DeliveryOverlay followEnvelopeId={followEnvelopeId} />

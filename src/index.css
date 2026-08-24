@@ -247,23 +247,21 @@ button {
 .tree-sway { animation: sway 4s ease-in-out infinite; transform-box: fill-box; }
 @keyframes sway { 0%,100% { transform: rotate(-3deg); } 50% { transform: rotate(3deg); } }
 
-.bld-shadow { fill: rgba(20, 24, 46, 0.1); }
-.bld-chimney { fill: #b3543f; }
-.bld-chimney-cap { fill: #8a3f2e; }
-.bld-wall { fill: #fbead0; stroke: rgba(0,0,0,0.12); stroke-width: 0.6; }
-.bld-roof { fill: #e2685a; }
+.bld-shadow { fill: rgba(20, 24, 46, 0.12); }
+.bld-chimney { fill: #b3543f; stroke: rgba(0,0,0,0.2); stroke-width: 0.4; }
+.bld-roof { fill: #e2685a; stroke: rgba(0,0,0,0.15); stroke-width: 0.6; }
 .bld-roof.mine { fill: var(--primary); }
-.bld-roof-trim { stroke: rgba(0,0,0,0.15); stroke-width: 0.8; }
+.bld-roof-shade { fill: rgba(0,0,0,0.12); }
+.bld-roof-ridge { stroke: rgba(255,255,255,0.4); stroke-width: 0.7; }
+.bld-roof-ridge.cross { fill: rgba(255,255,255,0.4); stroke: none; }
 .bld-door { fill: #8a5a3b; stroke: rgba(0,0,0,0.15); stroke-width: 0.4; }
-.bld-doorknob { fill: #ffd54f; }
 .bld-window { fill: #bcd4e8; stroke: rgba(0,0,0,0.12); stroke-width: 0.4; }
 .bld-window.lit { fill: #ffe08a; }
-.bld-window-mullion { stroke: rgba(255,255,255,0.55); stroke-width: 0.5; }
 .bld-bush { fill: #5fa872; stroke: #3f7a52; stroke-width: 0.4; }
 .bld-apartment { fill: #d9dcf5; stroke: #b9bfec; stroke-width: 1; }
 .bld-shop { stroke: rgba(0,0,0,0.08); stroke-width: 1; }
 .shop-awning { fill: #e2685a; opacity: 0.8; }
-.house.mine .bld-wall { stroke: var(--primary); stroke-width: 2; }
+.house.mine .bld-roof { stroke: var(--primary-dark); stroke-width: 1.2; }
 .select-ring { fill: none; stroke: var(--primary); stroke-width: 3; opacity: 0.55; animation: pulse-ring 1.4s ease-in-out infinite; }
 @keyframes pulse-ring { 0% { r: 14; opacity: 0.7; } 100% { r: 26; opacity: 0; } }
 
@@ -332,6 +330,36 @@ button {
   font-size: 18px;
   display: flex; align-items: center; justify-content: center;
 }
+
+/* ---------- House click popup ---------- */
+.popup-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  background: transparent;
+}
+.house-popup {
+  position: fixed;
+  z-index: 41;
+  background: var(--bg-elevated);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-lg);
+  padding: 12px 14px 14px;
+  animation: pop-in 0.16s cubic-bezier(.3,1.3,.4,1);
+}
+.house-popup.above { transform: translateY(-100%); }
+.house-popup-close { position: absolute; top: 6px; right: 6px; width: 24px; height: 24px; font-size: 11px; box-shadow: none; background: rgba(0,0,0,0.05); }
+.house-popup-title { font-weight: 800; font-size: 14.5px; padding-right: 20px; }
+.house-popup-sub { font-size: 12px; margin-top: 2px; }
+.house-popup-arrow {
+  position: absolute;
+  left: var(--arrow-x, 50%);
+  width: 14px; height: 14px;
+  background: var(--bg-elevated);
+  transform: translateX(-50%) rotate(45deg);
+}
+.house-popup.above .house-popup-arrow { bottom: -6px; border-radius: 0 0 3px 0; box-shadow: 3px 3px 4px -2px rgba(28,33,64,0.15); }
+.house-popup.below .house-popup-arrow { top: -6px; border-radius: 3px 0 0 0; box-shadow: -3px -3px 4px -2px rgba(28,33,64,0.15); }
 
 /* ---------- Address chip / picker ---------- */
 .address-chip {

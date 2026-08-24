@@ -24,7 +24,6 @@ function MailboxGlyph({ x, y, isMine, hasUnread }: { x: number; y: number; isMin
   );
 }
 
-const WALL_PALETTE = ['#fbead0', '#f8dfe1', '#dceee1', '#dde6f7', '#f5e8d6', '#eee0f6', '#e3f0f6'];
 const ROOF_PALETTE = ['#e2685a', '#d98c46', '#4f8f6d', '#5a7fc0', '#c05a86', '#3f9e97'];
 
 function hashIndex(id: string, salt: string, mod: number) {
@@ -34,51 +33,35 @@ function hashIndex(id: string, salt: string, mod: number) {
   return h % mod;
 }
 
-function WindowGlyph({ x, y, w, h, lit }: { x: number; y: number; w: number; h: number; lit: boolean }) {
-  return (
-    <g>
-      <rect x={x} y={y} width={w} height={h} rx={1} className={lit ? 'bld-window lit' : 'bld-window'} />
-      <line x1={x + w / 2} y1={y} x2={x + w / 2} y2={y + h} className="bld-window-mullion" />
-      <line x1={x} y1={y + h / 2} x2={x + w} y2={y + h / 2} className="bld-window-mullion" />
-    </g>
-  );
-}
-
+/** A house drawn top-down (bird's-eye), the way the rest of the map reads. */
 function HouseGlyph({
-  x, y, w, h, lit, addr, isMine, hasUnread, highlighted, onSelect,
+  x, y, w, h, addr, isMine, hasUnread, highlighted, onSelect,
 }: {
-  x: number; y: number; w: number; h: number; lit: boolean;
+  x: number; y: number; w: number; h: number;
   addr: AddressUnit; isMine: boolean; hasUnread: boolean; highlighted: boolean;
-  onSelect?: (addr: AddressUnit) => void;
+  onSelect?: (addr: AddressUnit, point: { x: number; y: number }) => void;
 }) {
-  const roofH = h * 0.42;
-  const wallFill = WALL_PALETTE[hashIndex(addr.id, 'wall', WALL_PALETTE.length)];
   const roofFill = ROOF_PALETTE[hashIndex(addr.id, 'roof', ROOF_PALETTE.length)];
-  const chimneySide = hashIndex(addr.id, 'chimney', 2) === 0 ? 0.24 : 0.7;
+  const chimneySide = hashIndex(addr.id, 'chimney', 2) === 0 ? 0.24 : 0.72;
+  const chimneyEnd = hashIndex(addr.id, 'chimneyEnd', 2) === 0 ? 0.22 : 0.78;
   const chimneyX = x + w * chimneySide;
-  const chimneyTopY = y + roofH * 0.32;
+  const chimneyY = y + h * chimneyEnd;
+  const ridgeX = x + w / 2;
   return (
     <g
-      onClick={(e) => { e.stopPropagation(); onSelect?.(addr); }}
+      onClick={(e) => { e.stopPropagation(); onSelect?.(addr, { x: e.clientX, y: e.clientY }); }}
       className={isMine ? 'house mine' : 'house'}
       style={{ cursor: onSelect ? 'pointer' : undefined }}
     >
       {highlighted && <circle cx={x + w / 2} cy={y + h / 2} r={Math.max(w, h) * 0.95} className="select-ring" />}
-      <ellipse cx={x + w / 2} cy={y + h + h * 0.06} rx={w * 0.56} ry={h * 0.09} className="bld-shadow" />
-      <rect x={chimneyX - w * 0.045} y={chimneyTopY} width={w * 0.09} height={roofH * 0.55} className="bld-chimney" />
-      <rect x={chimneyX - w * 0.06} y={chimneyTopY - h * 0.02} width={w * 0.12} height={h * 0.04} className="bld-chimney-cap" />
-      <rect x={x} y={y + roofH} width={w} height={h - roofH} rx={2} className="bld-wall" style={isMine ? undefined : { fill: wallFill }} />
-      <polygon
-        points={`${x - 2},${y + roofH} ${x + w / 2},${y} ${x + w + 2},${y + roofH}`}
-        className={isMine ? 'bld-roof mine' : 'bld-roof'}
-        style={isMine ? undefined : { fill: roofFill }}
-      />
-      <line x1={x - 2} y1={y + roofH} x2={x + w + 2} y2={y + roofH} className="bld-roof-trim" />
-      <rect x={x + w * 0.28} y={y + h - h * 0.34} width={w * 0.16} height={h * 0.3} rx={0.6} className="bld-door" />
-      <circle cx={x + w * 0.4} cy={y + h - h * 0.18} r={0.9} className="bld-doorknob" />
-      <WindowGlyph x={x + w * 0.58} y={y + roofH + h * 0.12} w={w * 0.22} h={h * 0.16} lit={lit} />
-      <circle cx={x + w * 0.1} cy={y + h - h * 0.06} r={w * 0.09} className="bld-bush" />
-      <circle cx={x + w * 0.9} cy={y + h - h * 0.05} r={w * 0.07} className="bld-bush" />
+      <ellipse cx={x + w / 2 + w * 0.06} cy={y + h / 2 + h * 0.1} rx={w * 0.62} ry={h * 0.58} className="bld-shadow" />
+      <rect x={x} y={y} width={w} height={h} rx={w * 0.14} className={isMine ? 'bld-roof mine' : 'bld-roof'} style={isMine ? undefined : { fill: roofFill }} />
+      <rect x={ridgeX} y={y + h * 0.08} width={w / 2} height={h * 0.84} className="bld-roof-shade" />
+      <line x1={ridgeX} y1={y + h * 0.08} x2={ridgeX} y2={y + h * 0.92} className="bld-roof-ridge" />
+      <rect x={x + w * 0.08} y={y + h * 0.42} width={w * 0.84} height={h * 0.02} className="bld-roof-ridge cross" />
+      <rect x={chimneyX - w * 0.07} y={chimneyY - h * 0.07} width={w * 0.14} height={h * 0.14} rx={1} className="bld-chimney" />
+      <circle cx={x + w * 0.14} cy={y + h * 0.86} r={w * 0.1} className="bld-bush" />
+      <circle cx={x + w * 0.86} cy={y + h * 0.86} r={w * 0.08} className="bld-bush" />
       <MailboxGlyph x={addr.doorPos.x} y={addr.doorPos.y} isMine={isMine} hasUnread={hasUnread} />
       <rect x={x - 2} y={y - 2} width={w + 4} height={h + 4} fill="transparent" />
     </g>
@@ -220,7 +203,7 @@ interface BlockRenderCtx {
   myAddressId?: string;
   unreadAddressIds: Set<string>;
   highlightedAddressId?: string;
-  onSelectAddress?: (addr: AddressUnit) => void;
+  onSelectAddress?: (addr: AddressUnit, point: { x: number; y: number }) => void;
 }
 
 function BlockView({ block, ctx }: { block: Block; ctx: BlockRenderCtx }) {
@@ -238,14 +221,13 @@ function BlockView({ block, ctx }: { block: Block; ctx: BlockRenderCtx }) {
   return (
     <g>
       <rect x={bounds.x} y={bounds.y} width={bounds.w} height={bounds.h} rx={8} className="lot-ground" />
-      {addrs.map((a, i) => (
+      {addrs.map((a) => (
         <HouseGlyph
           key={a.id}
           x={a.pos.x - houseW / 2}
           y={a.pos.y - houseH / 2}
           w={houseW}
           h={houseH}
-          lit={i % 5 === 0}
           addr={a}
           isMine={a.id === ctx.myAddressId}
           hasUnread={ctx.unreadAddressIds.has(a.id)}

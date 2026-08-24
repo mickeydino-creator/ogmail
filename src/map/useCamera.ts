@@ -9,6 +9,7 @@ export interface Camera {
 
 const MIN_SCALE = 0.18;
 const MAX_SCALE = 3.2;
+const DRAG_THRESHOLD_PX = 6;
 
 function clampScale(s: number) {
   return Math.min(MAX_SCALE, Math.max(MIN_SCALE, s));
@@ -25,7 +26,9 @@ export function useCamera(containerRef: React.RefObject<HTMLDivElement | null>, 
     cameraRef.current = camera;
   }, [camera]);
   const animRef = useRef<number | null>(null);
-  const dragState = useRef<{ x: number; y: number; pointerId: number } | null>(null);
+  const dragState = useRef<{ x: number; y: number; pointerId: number; startX: number; startY: number; captured: boolean } | null>(
+    null,
+  );
   const pinchState = useRef<{ dist: number; scale: number } | null>(null);
 
   const cancelAnim = useCallback(() => {
@@ -93,15 +96,19 @@ export function useCamera(containerRef: React.RefObject<HTMLDivElement | null>, 
       cancelAnim();
       activePointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
       if (activePointers.size === 1) {
-        dragState.current = { x: e.clientX, y: e.clientY, pointerId: e.pointerId };
+        // Capture is deliberately NOT taken here — only once real dragging is detected
+        // (see onPointerMove). Capturing immediately would redirect the resulting click
+        // event to this container instead of whatever was actually tapped (a house, the
+        // factory, etc.), silently breaking every tap-to-select interaction on the map.
+        dragState.current = { x: e.clientX, y: e.clientY, startX: e.clientX, startY: e.clientY, pointerId: e.pointerId, captured: false };
       } else if (activePointers.size === 2) {
         const pts = Array.from(activePointers.values());
         pinchState.current = {
           dist: Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y),
           scale: cameraRef.current.scale,
         };
+        el.setPointerCapture(e.pointerId);
       }
-      el.setPointerCapture(e.pointerId);
     };
 
     const onPointerMove = (e: PointerEvent) => {
@@ -130,7 +137,14 @@ export function useCamera(containerRef: React.RefObject<HTMLDivElement | null>, 
       if (dragState.current && dragState.current.pointerId === e.pointerId) {
         const dx = e.clientX - dragState.current.x;
         const dy = e.clientY - dragState.current.y;
-        dragState.current = { x: e.clientX, y: e.clientY, pointerId: e.pointerId };
+        if (!dragState.current.captured) {
+          const totalDist = Math.hypot(e.clientX - dragState.current.startX, e.clientY - dragState.current.startY);
+          if (totalDist > DRAG_THRESHOLD_PX) {
+            el.setPointerCapture(e.pointerId);
+            dragState.current.captured = true;
+          }
+        }
+        dragState.current = { ...dragState.current, x: e.clientX, y: e.clientY };
         panBy(dx, dy);
       }
     };
@@ -140,9 +154,16 @@ export function useCamera(containerRef: React.RefObject<HTMLDivElement | null>, 
       if (dragState.current?.pointerId === e.pointerId) dragState.current = null;
       if (activePointers.size < 2) pinchState.current = null;
       if (activePointers.size === 1) {
+        // Continuing a pan after lifting one finger of a pinch — already mid-gesture,
+        // so there's no tap to protect and capture can be taken immediately.
         const [[id, p]] = activePointers;
-        dragState.current = { x: p.x, y: p.y, pointerId: id };
+        if (!el.hasPointerCapture(id)) el.setPointerCapture(id);
+        dragState.current = { x: p.x, y: p.y, startX: p.x, startY: p.y, pointerId: id, captured: true };
       }
+      // Release capture so the resulting click event targets whatever is actually under
+      // the pointer (a house, the factory, etc.) instead of being redirected to this
+      // container — otherwise taps on map elements would never fire their onClick.
+      if (el.hasPointerCapture(e.pointerId)) el.releasePointerCapture(e.pointerId);
     };
 
     const onWheel = (e: WheelEvent) => {
