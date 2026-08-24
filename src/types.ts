@@ -30,8 +30,6 @@ export interface User {
   username: string;
   addressId: string;
   createdAt: number;
-  sentCount: number;
-  receivedCount: number;
   isNpc?: boolean;
 }
 
@@ -47,7 +45,10 @@ export type DeliveryStatus =
 export const ENVELOPE_STYLES = ['classic', 'kraft', 'rose', 'sky', 'sunshine', 'mint'] as const;
 export type EnvelopeStyle = (typeof ENVELOPE_STYLES)[number];
 
-export interface Envelope {
+/** As stored in the `envelopes` table. Delivery status is never persisted — it's a
+ * pure function of `createdAt` (see engine/deliveryEngine.ts), so it's automatically
+ * consistent across every device/tab watching the same row, and needs no writes. */
+export interface EnvelopeRow {
   id: string;
   senderId: string;
   recipientId: string;
@@ -56,10 +57,13 @@ export interface Envelope {
   gift?: string;
   style: EnvelopeStyle;
   createdAt: number;
+  read: boolean;
+}
+
+/** An EnvelopeRow plus its derived delivery status, recomputed on every tick. */
+export interface Envelope extends EnvelopeRow {
   status: DeliveryStatus;
   statusChangedAt: number;
-  read: boolean;
-  seenByRecipientNotification: boolean;
 }
 
 export interface DeliveryTimings {

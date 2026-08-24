@@ -1,10 +1,21 @@
+import { useMemo } from 'react';
 import { useStore } from '../store/useStore';
 import { addressLabel, avatarColorFor, districtLabel, initialsFor } from '../utils';
 
 export function ProfileScreen({ onViewAddress }: { onViewAddress: () => void }) {
   const users = useStore((s) => s.users);
+  const envelopes = useStore((s) => s.envelopes);
   const currentUserId = useStore((s) => s.currentUserId);
   const me = users[currentUserId];
+
+  const { sentCount, receivedCount } = useMemo(() => {
+    const all = Object.values(envelopes);
+    return {
+      sentCount: all.filter((e) => e.senderId === currentUserId).length,
+      receivedCount: all.filter((e) => e.recipientId === currentUserId && e.status === 'DELIVERED').length,
+    };
+  }, [envelopes, currentUserId]);
+
   if (!me) return null;
 
   return (
@@ -24,11 +35,11 @@ export function ProfileScreen({ onViewAddress }: { onViewAddress: () => void }) 
 
         <div className="stat-row">
           <div className="stat-card">
-            <div className="stat-num">{me.sentCount}</div>
+            <div className="stat-num">{sentCount}</div>
             <div className="stat-label">SENT</div>
           </div>
           <div className="stat-card">
-            <div className="stat-num">{me.receivedCount}</div>
+            <div className="stat-num">{receivedCount}</div>
             <div className="stat-label">RECEIVED</div>
           </div>
         </div>

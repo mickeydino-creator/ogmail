@@ -1,16 +1,14 @@
-import type { DeliveryStatus, Envelope } from '../types';
+import type { DeliveryStatus, EnvelopeRow, Envelope } from '../types';
 import { pathLength } from '../world/routing';
 import { routeFromFactory, routeToFactory } from '../world/routing';
 import { WORLD } from '../world/generateWorld';
 
-export const STATUS_ORDER: DeliveryStatus[] = [
-  'CREATED',
+const TIMED_STATUSES: Exclude<DeliveryStatus, 'CREATED' | 'DELIVERED'>[] = [
   'PICKUP',
   'TO_FACTORY',
   'PROCESSING',
   'LEAVING_FACTORY',
   'TO_RECIPIENT',
-  'DELIVERED',
 ];
 
 const BASE_PICKUP_MS = 1500;
@@ -46,50 +44,30 @@ export function computeDurations(senderAddressId: string, recipientAddressId: st
   };
 }
 
-function durationOf(status: DeliveryStatus, d: Durations): number {
-  switch (status) {
-    case 'PICKUP': return d.PICKUP;
-    case 'TO_FACTORY': return d.TO_FACTORY;
-    case 'PROCESSING': return d.PROCESSING;
-    case 'LEAVING_FACTORY': return d.LEAVING_FACTORY;
-    case 'TO_RECIPIENT': return d.TO_RECIPIENT;
-    default: return 0;
-  }
-}
-
 /**
- * Advances an envelope's status based on elapsed wall-clock time, cascading through
- * multiple states if the app was closed for a while. This is what makes delivery
- * state recoverable across reloads.
+ * Delivery status is never stored — it's derived purely from `createdAt` plus the
+ * route-dependent durations, by walking through each timed status in order and
+ * seeing how far into the total journey `now` falls. Because it only depends on
+ * data every client already has (the row's createdAt, and the deterministic world
+ * map), this is automatically consistent across every device watching the same
+ * envelope, and naturally "recovers" correctly after any amount of time offline.
  */
-export function advanceEnvelope(envelope: Envelope, durations: Durations, now: number): Envelope {
-  if (envelope.status === 'DELIVERED') return envelope;
-  let status: DeliveryStatus = envelope.status;
-  let changedAt = envelope.statusChangedAt;
-  // Kick off CREATED -> PICKUP immediately.
-  if (status === 'CREATED') {
-    status = 'PICKUP';
-    changedAt = envelope.statusChangedAt;
+export function deriveEnvelope(row: EnvelopeRow, durations: Durations, now: number): Envelope {
+  let cursor = row.createdAt;
+  for (const status of TIMED_STATUSES) {
+    const dur = durations[status];
+    if (now < cursor + dur) {
+      return { ...row, status, statusChangedAt: cursor };
+    }
+    cursor += dur;
   }
-  // Cascade through timed states while enough time has elapsed.
-  // Guard against infinite loop with a max iteration count.
-  for (let i = 0; i < STATUS_ORDER.length; i++) {
-    if (status === 'DELIVERED') break;
-    const dur = durationOf(status, durations);
-    const elapsed = now - changedAt;
-    if (elapsed < dur) break;
-    const idx = STATUS_ORDER.indexOf(status);
-    const next = STATUS_ORDER[idx + 1];
-    changedAt = changedAt + dur;
-    status = next;
-  }
-  if (status === envelope.status) return envelope;
-  return { ...envelope, status, statusChangedAt: changedAt };
+  return { ...row, status: 'DELIVERED', statusChangedAt: cursor };
 }
 
 /** Progress in [0,1] within the current status, for smooth animation via rAF. */
 export function progressWithin(envelope: Envelope, durations: Durations, now: number): number {
-  const dur = durationOf(envelope.status, durations);
+  if (envelope.status === 'CREATED' || envelope.status === 'DELIVERED') return 1;
+  const dur = durations[envelope.status];
   if (dur <= 0) return 1;
   return Math.max(0, Math.min(1, (now - envelope.statusChangedAt) / dur));
 }

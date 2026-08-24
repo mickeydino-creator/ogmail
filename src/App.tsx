@@ -1,10 +1,13 @@
 import { useEffect, useRef, useState } from 'react';
 import { useStore } from './store/useStore';
+import { supabaseConfigured } from './lib/supabaseClient';
 import { BottomNav, type Tab } from './components/BottomNav';
 import { MapScreen } from './screens/MapScreen';
 import { SendMailScreen } from './screens/SendMailScreen';
 import { InboxScreen } from './screens/InboxScreen';
 import { ProfileScreen } from './screens/ProfileScreen';
+import { OnboardingScreen } from './screens/OnboardingScreen';
+import { SetupRequiredScreen } from './screens/SetupRequiredScreen';
 import type { DeliveryStatus } from './types';
 
 const DELIVERED_LINGER_MS = 2600;
@@ -12,7 +15,8 @@ const DELIVERED_LINGER_MS = 2600;
 function App() {
   const init = useStore((s) => s.init);
   const tick = useStore((s) => s.tick);
-  const hydrated = useStore((s) => s.hydrated);
+  const status = useStore((s) => s.status);
+  const errorMessage = useStore((s) => s.errorMessage);
   const notifications = useStore((s) => s.notifications);
   const dismissNotification = useStore((s) => s.dismissNotification);
   const users = useStore((s) => s.users);
@@ -27,13 +31,14 @@ function App() {
   const clearTimerRef = useRef<number | null>(null);
 
   useEffect(() => {
-    init();
+    if (supabaseConfigured) init();
   }, [init]);
 
   useEffect(() => {
+    if (status !== 'ready') return;
     const id = window.setInterval(() => tick(), 300);
     return () => window.clearInterval(id);
-  }, [tick]);
+  }, [tick, status]);
 
   useEffect(() => {
     if (deliveryPhase === 'DELIVERED') {
@@ -53,7 +58,10 @@ function App() {
     : 0;
   const activeNotification = notifications.find((n) => !n.read);
 
-  if (!hydrated) {
+  if (!supabaseConfigured) return <SetupRequiredScreen />;
+  if (status === 'error') return <SetupRequiredScreen errorMessage={errorMessage} />;
+  if (status === 'needs-username') return <OnboardingScreen />;
+  if (status !== 'ready' || !me) {
     return (
       <div className="app-shell">
         <div className="center-empty" style={{ height: '100%' }}>

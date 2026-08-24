@@ -45,12 +45,12 @@ export function SendMailScreen({
     reader.readAsDataURL(file);
   };
 
-  const handleSend = () => {
+  const handleSend = async () => {
     if (!recipient) return;
     setSending(true);
-    const id = sendEnvelope({ recipientId: recipient.id, message, style, imageDataUrl, gift: gift || undefined });
+    const id = await sendEnvelope({ recipientId: recipient.id, message, style, imageDataUrl, gift: gift || undefined });
     setSending(false);
-    onSent(id);
+    if (id) onSent(id);
   };
 
   if (!me) return null;
