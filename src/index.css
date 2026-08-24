@@ -239,9 +239,21 @@ button {
 .road-sidewalk { stroke: #cdd4ea; stroke-linecap: round; }
 .road-asphalt { stroke: #545b73; stroke-linecap: round; }
 .road-centerline { stroke: #f2c94c; stroke-width: 1.6; stroke-dasharray: 9 8; opacity: 0.85; }
-.lot-ground { fill: #e3f4e6; }
-.park-ground { fill: #cdeccb; }
+.local-sidewalk { stroke: #cdd4ea; stroke-width: 22; stroke-linecap: round; }
+.local-asphalt { stroke: #5c6484; stroke-width: 15; stroke-linecap: round; }
+.driveway { stroke: #b9c0d6; stroke-width: 6; stroke-linecap: round; }
 .park-path { stroke: #e8dcb8; stroke-width: 6; fill: none; stroke-linecap: round; }
+
+/* ---------- Biomes ---------- */
+.biome-ground.biome-grass { fill: #e3f4e6; }
+.biome-ground.biome-forest { fill: #cfe8d2; }
+.biome-ground.biome-desert { fill: #f0e2b6; }
+.biome-ground.biome-coastal { fill: #d7eef2; }
+.tree-leaf.dark { fill: #3d7d4c; }
+.cactus { fill: #4f9e5c; stroke: #2f7a3c; stroke-width: 0.5; }
+.desert-rock { fill: #c9ad7a; stroke: #a8895a; stroke-width: 0.4; }
+.water-patch { fill: #7fc3d6; opacity: 0.75; }
+.grass-tuft { fill: #7cb98a; }
 .tree-leaf { fill: #4e9b5c; }
 .tree-trunk { fill: #8a5a3b; }
 .tree-sway { animation: sway 4s ease-in-out infinite; transform-box: fill-box; }

@@ -1,19 +1,11 @@
-import { CELL, FACTORY_COL, FACTORY_ROW, WORLD } from './generateWorld';
+import { arterialNode, FACTORY_COL, FACTORY_ROW, WORLD } from './generateWorld';
 import type { AddressUnit, Point } from '../types';
 
-function nodeAt(row: number, col: number): Point {
-  return { x: col * CELL, y: row * CELL };
-}
-
-function addressRoadRowCol(addr: AddressUnit): { row: number; col: number } {
-  return { row: Math.round(addr.roadNode.y / CELL), col: Math.round(addr.roadNode.x / CELL) };
-}
-
-// L-shaped Manhattan path between two grid intersections, following streets.
+// L-shaped Manhattan path between two arterial-grid intersections, following roads.
 function gridPath(a: { row: number; col: number }, b: { row: number; col: number }): Point[] {
-  const pts: Point[] = [nodeAt(a.row, a.col)];
-  if (a.col !== b.col) pts.push(nodeAt(a.row, b.col));
-  if (a.row !== b.row) pts.push(nodeAt(b.row, b.col));
+  const pts: Point[] = [arterialNode(a.row, a.col)];
+  if (a.col !== b.col) pts.push(arterialNode(a.row, b.col));
+  if (a.row !== b.row) pts.push(arterialNode(b.row, b.col));
   return pts;
 }
 
@@ -22,18 +14,18 @@ const factoryNorthNode = { row: FACTORY_ROW, col: FACTORY_COL };
 
 /** Full waypoint path for driving from a sender's house to the factory entrance. */
 export function routeToFactory(from: AddressUnit): Point[] {
-  const start = addressRoadRowCol(from);
+  const start = { row: from.approachRow, col: from.approachCol };
   const path = gridPath(start, factorySouthNode);
-  const southNodePt = nodeAt(factorySouthNode.row, factorySouthNode.col);
-  return [from.doorPos, ...path, { x: WORLD.factory.entrance.x, y: southNodePt.y }, WORLD.factory.entrance];
+  const southNodePt = arterialNode(factorySouthNode.row, factorySouthNode.col);
+  return [from.doorPos, from.junction, ...path, { x: WORLD.factory.entrance.x, y: southNodePt.y }, WORLD.factory.entrance];
 }
 
 /** Full waypoint path for driving from the factory exit to a recipient's mailbox. */
 export function routeFromFactory(to: AddressUnit): Point[] {
-  const end = addressRoadRowCol(to);
-  const northNodePt = nodeAt(factoryNorthNode.row, factoryNorthNode.col);
+  const end = { row: to.approachRow, col: to.approachCol };
+  const northNodePt = arterialNode(factoryNorthNode.row, factoryNorthNode.col);
   const path = gridPath(factoryNorthNode, end);
-  return [WORLD.factory.exit, { x: WORLD.factory.exit.x, y: northNodePt.y }, ...path, to.doorPos];
+  return [WORLD.factory.exit, { x: WORLD.factory.exit.x, y: northNodePt.y }, ...path, to.junction, to.doorPos];
 }
 
 export function pathLength(points: Point[]): number {

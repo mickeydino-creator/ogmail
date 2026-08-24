@@ -39,11 +39,17 @@ app shows an in-app setup screen with these same steps instead of crashing.
 
 ## How the world is built
 
-`src/world/generateWorld.ts` deterministically generates a 13×13 grid of city blocks
-(houses, apartment towers, shops, parks, and one giant factory dead center) from a
-seeded PRNG, so the same map exists on every load, for every visitor. Addresses are
-just IDs into this generated grid (`b-<row>-<col>-h<n>`) — the database only ever
-stores which address a profile occupies, never the map itself.
+`src/world/generateWorld.ts` deterministically generates the world from a seeded PRNG,
+so the same map exists on every load, for every visitor. The only rigid structure is a
+sparse arterial road grid; everything else is scattered organically in the open land
+between those roads — a handful of "city" hotspots get dense clusters of neighborhoods,
+land further out gets progressively sparser, and every cell is tagged with a biome
+(grass, forest, desert, or coastal) that colors its terrain and decoration. Each
+neighborhood is a short local street branching off the arterial grid, with houses
+placed along it at randomized, spaced-out positions — every house gets its own short
+driveway connecting it to that street, which is also how it's routed for delivery.
+Addresses are just IDs into this generated world (`b-<row>-<col>-n<i>-h<n>`) — the
+database only ever stores which address a profile occupies, never the map itself.
 
 ## How delivery state works
 

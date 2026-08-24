@@ -14,9 +14,9 @@ const TIMED_STATUSES: Exclude<DeliveryStatus, 'CREATED' | 'DELIVERED'>[] = [
 const BASE_PICKUP_MS = 1500;
 const BASE_PROCESSING_MS = 2000;
 const BASE_LEAVING_MS = 1400;
-const MIN_DRIVE_MS = 6000;
-const MAX_DRIVE_MS = 14000;
-const DRIVE_SPEED_UNITS_PER_MS = 0.5;
+const MIN_DRIVE_MS = 7000;
+const MAX_DRIVE_MS = 18000;
+const DRIVE_SPEED_UNITS_PER_MS = 0.32;
 
 function driveDurationMs(distance: number): number {
   return Math.min(MAX_DRIVE_MS, Math.max(MIN_DRIVE_MS, distance / DRIVE_SPEED_UNITS_PER_MS));

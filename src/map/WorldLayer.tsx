@@ -1,11 +1,26 @@
 import { memo, useMemo } from 'react';
 import { CELL, GRID_N, ROAD_WIDTH, WORLD } from '../world/generateWorld';
-import type { AddressUnit, Block } from '../types';
+import type { AddressUnit, Biome, Block, Neighborhood } from '../types';
 
 interface VisibleRect { x: number; y: number; w: number; h: number }
 
 function intersects(a: VisibleRect, b: { x: number; y: number; w: number; h: number }) {
   return a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y;
+}
+
+function hashIndex(id: string, salt: string, mod: number) {
+  let h = 0;
+  const s = id + salt;
+  for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) >>> 0;
+  return h % mod;
+}
+
+function seededRand(seed: number) {
+  let s = seed;
+  return () => {
+    s = (s * 1664525 + 1013904223) >>> 0;
+    return s / 4294967296;
+  };
 }
 
 function MailboxGlyph({ x, y, isMine, hasUnread }: { x: number; y: number; isMine: boolean; hasUnread: boolean }) {
@@ -25,22 +40,21 @@ function MailboxGlyph({ x, y, isMine, hasUnread }: { x: number; y: number; isMin
 }
 
 const ROOF_PALETTE = ['#e2685a', '#d98c46', '#4f8f6d', '#5a7fc0', '#c05a86', '#3f9e97'];
-
-function hashIndex(id: string, salt: string, mod: number) {
-  let h = 0;
-  const s = id + salt;
-  for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) >>> 0;
-  return h % mod;
-}
+const HOUSE_W = 46;
+const HOUSE_H = 56;
 
 /** A house drawn top-down (bird's-eye), the way the rest of the map reads. */
 function HouseGlyph({
-  x, y, w, h, addr, isMine, hasUnread, highlighted, onSelect,
+  addr, isMine, hasUnread, highlighted, onSelect,
 }: {
-  x: number; y: number; w: number; h: number;
   addr: AddressUnit; isMine: boolean; hasUnread: boolean; highlighted: boolean;
   onSelect?: (addr: AddressUnit, point: { x: number; y: number }) => void;
 }) {
+  const sizeJitter = 0.85 + (hashIndex(addr.id, 'size', 30) / 30) * 0.3;
+  const w = HOUSE_W * sizeJitter;
+  const h = HOUSE_H * sizeJitter;
+  const x = addr.pos.x - w / 2;
+  const y = addr.pos.y - h / 2;
   const roofFill = ROOF_PALETTE[hashIndex(addr.id, 'roof', ROOF_PALETTE.length)];
   const chimneySide = hashIndex(addr.id, 'chimney', 2) === 0 ? 0.24 : 0.72;
   const chimneyEnd = hashIndex(addr.id, 'chimneyEnd', 2) === 0 ? 0.22 : 0.78;
@@ -53,7 +67,8 @@ function HouseGlyph({
       className={isMine ? 'house mine' : 'house'}
       style={{ cursor: onSelect ? 'pointer' : undefined }}
     >
-      {highlighted && <circle cx={x + w / 2} cy={y + h / 2} r={Math.max(w, h) * 0.95} className="select-ring" />}
+      {highlighted && <circle cx={addr.pos.x} cy={addr.pos.y} r={Math.max(w, h) * 0.95} className="select-ring" />}
+      <line x1={addr.doorPos.x} y1={addr.doorPos.y} x2={addr.pos.x} y2={addr.pos.y} className="driveway" />
       <ellipse cx={x + w / 2 + w * 0.06} cy={y + h / 2 + h * 0.1} rx={w * 0.62} ry={h * 0.58} className="bld-shadow" />
       <rect x={x} y={y} width={w} height={h} rx={w * 0.14} className={isMine ? 'bld-roof mine' : 'bld-roof'} style={isMine ? undefined : { fill: roofFill }} />
       <rect x={ridgeX} y={y + h * 0.08} width={w / 2} height={h * 0.84} className="bld-roof-shade" />
@@ -68,7 +83,20 @@ function HouseGlyph({
   );
 }
 
-function ApartmentGlyph({ x, y, w, h }: { x: number; y: number; w: number; h: number }) {
+function NeighborhoodStreet({ n }: { n: Neighborhood }) {
+  return (
+    <g>
+      <line x1={n.junction.x} y1={n.junction.y} x2={n.tip.x} y2={n.tip.y} className="local-sidewalk" />
+      <line x1={n.junction.x} y1={n.junction.y} x2={n.tip.x} y2={n.tip.y} className="local-asphalt" />
+    </g>
+  );
+}
+
+function ApartmentGlyph({ addr, n }: { addr: AddressUnit; n: Neighborhood }) {
+  const w = 88;
+  const h = 108;
+  const x = addr.pos.x - w / 2;
+  const y = addr.pos.y - h / 2;
   const rows = 5;
   const cols = 3;
   const windows = [];
@@ -88,6 +116,9 @@ function ApartmentGlyph({ x, y, w, h }: { x: number; y: number; w: number; h: nu
   }
   return (
     <g>
+      <NeighborhoodStreet n={n} />
+      <line x1={addr.doorPos.x} y1={addr.doorPos.y} x2={addr.pos.x} y2={addr.pos.y} className="driveway" />
+      <ellipse cx={addr.pos.x + w * 0.05} cy={addr.pos.y + h * 0.08} rx={w * 0.58} ry={h * 0.54} className="bld-shadow" />
       <rect x={x} y={y} width={w} height={h} rx={6} className="bld-apartment" />
       {windows}
       <rect x={x + w * 0.42} y={y + h - h * 0.14} width={w * 0.16} height={h * 0.14} className="bld-door" />
@@ -95,17 +126,21 @@ function ApartmentGlyph({ x, y, w, h }: { x: number; y: number; w: number; h: nu
   );
 }
 
-function ShopRow({ bounds }: { bounds: Block['bounds'] }) {
+function ShopRow({ bounds, seed }: { bounds: Block['bounds']; seed: number }) {
   const shops = 3;
   const colors = ['#ffb4a2', '#a2d2ff', '#caffbf', '#ffd6a5'];
+  const rand = seededRand(seed);
+  const w = bounds.w * 0.5 / shops;
+  const cx = bounds.x + bounds.w / 2;
+  const cy = bounds.y + bounds.h / 2;
+  const startX = cx - (w * shops) / 2;
   const items = [];
-  const w = bounds.w / shops;
   for (let i = 0; i < shops; i++) {
     items.push(
       <g key={i}>
-        <rect x={bounds.x + i * w + 4} y={bounds.y + bounds.h * 0.35} width={w - 8} height={bounds.h * 0.55} rx={4}
-          fill={colors[i % colors.length]} className="bld-shop" />
-        <rect x={bounds.x + i * w + 4} y={bounds.y + bounds.h * 0.3} width={w - 8} height={bounds.h * 0.12}
+        <rect x={startX + i * w + 4} y={cy - bounds.h * 0.12} width={w - 8} height={bounds.h * 0.22} rx={4}
+          fill={colors[Math.floor(rand() * colors.length)]} className="bld-shop" />
+        <rect x={startX + i * w + 4} y={cy - bounds.h * 0.16} width={w - 8} height={bounds.h * 0.06}
           className="shop-awning" />
       </g>,
     );
@@ -116,7 +151,7 @@ function ShopRow({ bounds }: { bounds: Block['bounds'] }) {
 function ParkGlyph({ bounds, seed }: { bounds: Block['bounds']; seed: number }) {
   const trees = useMemo(() => {
     const arr = [];
-    for (let i = 0; i < 6; i++) {
+    for (let i = 0; i < 8; i++) {
       const rx = ((Math.sin(seed * 12.9898 + i * 78.233) * 43758.5453) % 1 + 1) % 1;
       const ry = ((Math.sin(seed * 39.34 + i * 12.9) * 12345.678) % 1 + 1) % 1;
       arr.push({
@@ -129,7 +164,6 @@ function ParkGlyph({ bounds, seed }: { bounds: Block['bounds']; seed: number }) 
   }, [bounds, seed]);
   return (
     <g>
-      <rect x={bounds.x} y={bounds.y} width={bounds.w} height={bounds.h} rx={10} className="park-ground" />
       <path
         d={`M ${bounds.x + bounds.w * 0.1} ${bounds.y + bounds.h * 0.5} Q ${bounds.x + bounds.w * 0.5} ${bounds.y + bounds.h * 0.2} ${bounds.x + bounds.w * 0.9} ${bounds.y + bounds.h * 0.5}`}
         className="park-path"
@@ -139,6 +173,59 @@ function ParkGlyph({ bounds, seed }: { bounds: Block['bounds']; seed: number }) 
           <circle cx={t.x} cy={t.y} r={9} className="tree-leaf" />
           <rect x={t.x - 1.5} y={t.y + 6} width={3} height={7} className="tree-trunk" />
         </g>
+      ))}
+    </g>
+  );
+}
+
+/** Base terrain for a cell, colored and decorated by biome. `full` renders dense
+ * decoration (used for empty wild land); a light touch is used everywhere else so it
+ * doesn't clutter houses/streets sitting on top of it. */
+function BiomeGround({ bounds, biome, seed, full }: { bounds: Block['bounds']; biome: Biome; seed: number; full: boolean }) {
+  const rand = seededRand(seed);
+  const count = full ? 10 : 2;
+  const items = useMemo(() => {
+    const arr: { x: number; y: number; variant: number }[] = [];
+    for (let i = 0; i < count; i++) {
+      arr.push({
+        x: bounds.x + bounds.w * (0.08 + rand() * 0.84),
+        y: bounds.y + bounds.h * (0.08 + rand() * 0.84),
+        variant: Math.floor(rand() * 3),
+      });
+    }
+    return arr;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [bounds, seed, full]);
+
+  return (
+    <g>
+      <rect x={bounds.x} y={bounds.y} width={bounds.w} height={bounds.h} rx={10} className={`biome-ground biome-${biome}`} />
+      {biome === 'forest' && items.map((t, i) => (
+        <g key={i} className="tree-sway" style={{ transformOrigin: `${t.x}px ${t.y}px`, animationDelay: `${i * 0.25}s` }}>
+          <circle cx={t.x} cy={t.y} r={7 + t.variant * 1.5} className="tree-leaf dark" />
+          <rect x={t.x - 1.3} y={t.y + 5} width={2.6} height={6} className="tree-trunk" />
+        </g>
+      ))}
+      {biome === 'desert' && items.map((t, i) => (
+        <g key={i}>
+          {t.variant === 0 ? (
+            <>
+              <rect x={t.x - 2} y={t.y - 10} width={4} height={14} rx={2} className="cactus" />
+              <rect x={t.x - 7} y={t.y - 4} width={4} height={8} rx={2} className="cactus" />
+            </>
+          ) : (
+            <circle cx={t.x} cy={t.y} r={3 + t.variant} className="desert-rock" />
+          )}
+        </g>
+      ))}
+      {biome === 'coastal' && (
+        <path
+          d={`M ${bounds.x} ${bounds.y + bounds.h * 0.7} Q ${bounds.x + bounds.w * 0.5} ${bounds.y + bounds.h * 0.55} ${bounds.x + bounds.w} ${bounds.y + bounds.h * 0.72} L ${bounds.x + bounds.w} ${bounds.y + bounds.h} L ${bounds.x} ${bounds.y + bounds.h} Z`}
+          className="water-patch"
+        />
+      )}
+      {biome === 'grass' && items.slice(0, full ? 6 : 1).map((t, i) => (
+        <circle key={i} cx={t.x} cy={t.y} r={2.4} className="grass-tuft" />
       ))}
     </g>
   );
@@ -207,27 +294,53 @@ interface BlockRenderCtx {
 }
 
 function BlockView({ block, ctx }: { block: Block; ctx: BlockRenderCtx }) {
-  const { bounds, kind } = block;
+  const { bounds, kind, biome } = block;
   if (kind === 'factory') return <FactoryGlyph />;
-  if (kind === 'park') return <ParkGlyph bounds={bounds} seed={block.row * 31 + block.col} />;
-  if (kind === 'shop') return <ShopRow bounds={bounds} />;
-  if (kind === 'apartment') {
-    return <ApartmentGlyph x={bounds.x} y={bounds.y} w={bounds.w} h={bounds.h} />;
+
+  if (kind === 'wild') {
+    return <BiomeGround bounds={bounds} biome={biome} seed={block.row * 92821 + block.col * 68917} full />;
   }
-  // house neighborhood
+
+  if (kind === 'park') {
+    return (
+      <>
+        <BiomeGround bounds={bounds} biome={biome} seed={block.row * 92821 + block.col * 68917 + 3} full={false} />
+        <ParkGlyph bounds={bounds} seed={block.row * 31 + block.col} />
+      </>
+    );
+  }
+
+  if (kind === 'shop') {
+    return (
+      <>
+        <BiomeGround bounds={bounds} biome={biome} seed={block.row * 92821 + block.col * 68917 + 5} full={false} />
+        <ShopRow bounds={bounds} seed={block.row * 31 + block.col + 9} />
+      </>
+    );
+  }
+
+  if (kind === 'apartment') {
+    const addrs = WORLD.addresses.filter((a) => a.blockId === block.id);
+    const n = block.neighborhoods[0];
+    return (
+      <>
+        <BiomeGround bounds={bounds} biome={biome} seed={block.row * 92821 + block.col * 68917 + 7} full={false} />
+        {n && addrs[0] && <ApartmentGlyph addr={addrs[0]} n={n} />}
+      </>
+    );
+  }
+
+  // house neighborhood(s)
   const addrs = WORLD.addresses.filter((a) => a.blockId === block.id);
-  const houseW = bounds.w / 4.6;
-  const houseH = bounds.h / 3.6;
   return (
-    <g>
-      <rect x={bounds.x} y={bounds.y} width={bounds.w} height={bounds.h} rx={8} className="lot-ground" />
+    <>
+      <BiomeGround bounds={bounds} biome={biome} seed={block.row * 92821 + block.col * 68917 + 11} full={false} />
+      {block.neighborhoods.map((n) => (
+        <NeighborhoodStreet key={n.id} n={n} />
+      ))}
       {addrs.map((a) => (
         <HouseGlyph
           key={a.id}
-          x={a.pos.x - houseW / 2}
-          y={a.pos.y - houseH / 2}
-          w={houseW}
-          h={houseH}
           addr={a}
           isMine={a.id === ctx.myAddressId}
           hasUnread={ctx.unreadAddressIds.has(a.id)}
@@ -235,7 +348,7 @@ function BlockView({ block, ctx }: { block: Block; ctx: BlockRenderCtx }) {
           onSelect={ctx.onSelectAddress}
         />
       ))}
-    </g>
+    </>
   );
 }
 

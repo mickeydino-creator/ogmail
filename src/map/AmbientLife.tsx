@@ -24,9 +24,9 @@ function CarGlyph({ color }: { color: string }) {
 export const AmbientLife = memo(function AmbientLife() {
   const loops = useMemo(() => {
     const arr: { id: string; d: string; dur: number; color: string; delay: number }[] = [];
-    const rows = [FACTORY_ROW - 4, FACTORY_ROW - 2, FACTORY_ROW + 2, FACTORY_ROW + 4, 1, GRID_N - 2];
+    const rows = [FACTORY_ROW - 2, FACTORY_ROW - 1, FACTORY_ROW + 1, FACTORY_ROW + 2, 1, GRID_N - 2];
     rows.forEach((row, i) => {
-      const half = i < 4 ? 3 : 5;
+      const half = i < 4 ? 1 : 2;
       arr.push({
         id: `loop-${i}`,
         d: loopPath(row, Math.max(0, FACTORY_COL - half), Math.min(GRID_N, FACTORY_COL + half)),
@@ -44,7 +44,7 @@ export const AmbientLife = memo(function AmbientLife() {
       const row = FACTORY_ROW - 2 + i;
       arr.push({
         id: `walk-${i}`,
-        d: `M ${(FACTORY_COL - 2) * CELL + 20} ${row * CELL + 10} L ${(FACTORY_COL + 2) * CELL - 20} ${row * CELL + 10}`,
+        d: `M ${(FACTORY_COL - 1) * CELL + 20} ${row * CELL + 10} L ${(FACTORY_COL + 1) * CELL - 20} ${row * CELL + 10}`,
         dur: 14 + i * 3,
         delay: i * 2,
       });

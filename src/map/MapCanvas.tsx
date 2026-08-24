@@ -26,7 +26,7 @@ interface Props {
   onDeliveryPhase?: (status: DeliveryStatus | null) => void;
 }
 
-const OVERVIEW_SCALE = 0.24;
+const OVERVIEW_SCALE = 0.11;
 
 export const MapCanvas = forwardRef<MapCanvasHandle, Props>(function MapCanvas(
   { myAddressId, unreadAddressIds, highlightedAddressId, onSelectAddress, followEnvelopeId, onDeliveryPhase },

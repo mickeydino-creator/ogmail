@@ -7,7 +7,7 @@ export interface Camera {
   ty: number;
 }
 
-const MIN_SCALE = 0.18;
+const MIN_SCALE = 0.08;
 const MAX_SCALE = 3.2;
 const DRAG_THRESHOLD_PX = 6;
 
