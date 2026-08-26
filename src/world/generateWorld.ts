@@ -109,7 +109,7 @@ function buildNeighborhood(
       approach = [row, col + 1, row + 1, col + 1];
   }
 
-  const length = 150 + rand() * 150;
+  const length = 220 + rand() * 280;
   const tip = { x: junction.x + dir.x * length, y: junction.y + dir.y * length };
   const perp = { x: -dir.y, y: dir.x };
   const [rowA, colA, rowB, colB] = approach;
@@ -118,15 +118,20 @@ function buildNeighborhood(
   return { neighborhood: { id, junction, tip, dir, perp, length }, approachRow, approachCol };
 }
 
-function housesAlongNeighborhood(rand: () => number, neighborhood: Neighborhood, count: number) {
+// Houses on the same side of a street are collinear along it (streets only run N/S/E/W,
+// so `dir` is always axis-aligned) — so the only thing standing between two consecutive
+// same-side houses and overlapping is this gap. Keep it comfortably larger than a house's
+// footprint (up to ~53×64 with size jitter) rather than deriving it from street
+// length/count, which could shrink below the house size on short or crowded streets.
+const MIN_HOUSE_GAP = 78;
+
+function housesAlongNeighborhood(rand: () => number, neighborhood: Neighborhood, maxCount: number) {
   const { junction, dir, perp, length } = neighborhood;
   const positions: number[] = [];
-  let cursor = 0.14;
-  const gap = 0.62 / count;
-  for (let i = 0; i < count; i++) {
-    cursor += gap * (0.7 + rand() * 0.8);
-    if (cursor > 0.93) break;
-    positions.push(cursor);
+  let dist = 40 + rand() * 20;
+  while (dist < length - 30 && positions.length < maxCount) {
+    positions.push(dist / length);
+    dist += MIN_HOUSE_GAP + rand() * 30;
   }
   return positions.map((t) => {
     const side = rand() < 0.5 ? -1 : 1;
@@ -176,6 +181,10 @@ export function generateWorld(): WorldData {
 
       if (plan.kind === 'house') {
         const usedEdges = new Set<Edge>();
+        // Tracks accepted house positions across every neighborhood in this cell, so a
+        // house on one street can't land on top of a house on a different street even
+        // though each street already spaces its own houses out individually.
+        const cellHousePositions: Point[] = [];
         for (let n = 0; n < plan.neighborhoodCount; n++) {
           let edge = EDGES[Math.floor(cellSeed() * EDGES.length)];
           if (usedEdges.size < EDGES.length) {
@@ -186,9 +195,11 @@ export function generateWorld(): WorldData {
           const { neighborhood, approachRow, approachCol } = buildNeighborhood(cellSeed, bounds, row, col, edge, nId);
           neighborhoods.push(neighborhood);
 
-          const houseCount = 4 + Math.floor(cellSeed() * 4);
-          const spots = housesAlongNeighborhood(cellSeed, neighborhood, houseCount);
+          const houseCount = 5 + Math.floor(cellSeed() * 5);
+          const spots = housesAlongNeighborhood(cellSeed, neighborhood, houseCount)
+            .filter((spot) => cellHousePositions.every((p) => Math.hypot(p.x - spot.pos.x, p.y - spot.pos.y) >= MIN_HOUSE_GAP));
           spots.forEach((spot, hIdx) => {
+            cellHousePositions.push(spot.pos);
             const number = row * 1000 + col * 20 + n * 40 + hIdx * 2 + 11;
             addresses.push({
               id: `${nId}-h${hIdx}`,
